@@ -2,8 +2,6 @@
 
 Projeto didatico em Java e Spring Boot com dois servicos independentes: produtos e estoque. O exercicio `src\Main.java` / `src\Cliente.java` permanece separado e inalterado.
 
-O repositorio indicado como referencia (`ecommerce_empresa_x`) contem um prototipo HTML descrito como PHP/MySQL; ele nao fornece codigo ou modelo para os microsservicos Java deste projeto.
-
 ## Tecnologias
 
 - Java 21 e Spring Boot 3.5.6
