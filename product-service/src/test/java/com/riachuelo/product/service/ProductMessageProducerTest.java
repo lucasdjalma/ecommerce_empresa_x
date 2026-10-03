@@ -8,12 +8,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.amqp.AmqpConnectException;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.net.ConnectException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -56,5 +63,21 @@ class ProductMessageProducerTest {
                 ProductCreatedEvent.class
         );
         assertThat(published).isEqualTo(event);
+    }
+
+    @Test
+    void reportsServiceUnavailableWhenBrokerIsDown() {
+        doThrow(new AmqpConnectException(new ConnectException("Connection refused")))
+                .when(rabbitTemplate).convertAndSend(anyString(), anyString(), anyString());
+        ProductCreatedEvent event = new ProductCreatedEvent(
+                12L,
+                "Calca",
+                "Calca jeans",
+                new BigDecimal("129.90")
+        );
+
+        assertThatThrownBy(() -> messageProducer.publishProductCreated(event))
+                .isInstanceOfSatisfying(ResponseStatusException.class, exception ->
+                        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
     }
 }

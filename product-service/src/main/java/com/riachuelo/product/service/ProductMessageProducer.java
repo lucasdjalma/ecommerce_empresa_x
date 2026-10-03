@@ -3,9 +3,12 @@ package com.riachuelo.product.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.riachuelo.product.dto.ProductCreatedEvent;
+import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
 @Component
 public class ProductMessageProducer {
@@ -33,6 +36,13 @@ public class ProductMessageProducer {
             rabbitTemplate.convertAndSend(exchangeName, routingKey, message);
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Could not serialize the product-created event.", exception);
+        } catch (AmqpException exception) {
+            // Broker indisponivel: a transacao e desfeita e o cliente recebe 503 em vez de 500.
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Message broker is unavailable. Try again later.",
+                    exception
+            );
         }
     }
 }

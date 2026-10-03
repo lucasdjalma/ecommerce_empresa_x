@@ -8,10 +8,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class ProductMessageConsumerTest {
@@ -43,7 +45,19 @@ class ProductMessageConsumerTest {
     @Test
     void rejectsMalformedMessage() {
         assertThatThrownBy(() -> messageConsumer.consumeProductCreated("not-json"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(AmqpRejectAndDontRequeueException.class)
                 .hasMessageContaining("Could not read");
+    }
+
+    @Test
+    void rejectsMessageWithoutProductId() {
+        String message = """
+                {"name":"Tenis","description":"Tenis esportivo","price":199.90}
+                """;
+
+        assertThatThrownBy(() -> messageConsumer.consumeProductCreated(message))
+                .isInstanceOf(AmqpRejectAndDontRequeueException.class)
+                .hasMessageContaining("product ID");
+        verifyNoInteractions(stockService);
     }
 }

@@ -42,7 +42,7 @@ Cada servico e um aplicativo Maven independente, com seu proprio `pom.xml`, clas
 - Maven 3.9 ou superior
 - RabbitMQ em execucao e acessivel pela porta AMQP 5672 para criar produtos e consumir os eventos
 
-Os servicos podem iniciar sem broker, mas a publicacao/consumo de mensagens nao funcionara ate RabbitMQ estar disponivel. Para outro host, porta ou credenciais, defina `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USERNAME` e `RABBITMQ_PASSWORD` no ambiente dos dois processos. Os valores padrao sao `localhost`, `5672` e `guest`/`guest`.
+Os servicos podem iniciar sem broker, mas a publicacao/consumo de mensagens nao funcionara ate RabbitMQ estar disponivel. Enquanto o broker estiver fora, `POST /api/products` responde `503 Service Unavailable` e o produto nao e gravado. Para outro host, porta ou credenciais, defina `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USERNAME` e `RABBITMQ_PASSWORD` no ambiente dos dois processos. Os valores padrao sao `localhost`, `5672` e `guest`/`guest`.
 
 ## Como executar
 
