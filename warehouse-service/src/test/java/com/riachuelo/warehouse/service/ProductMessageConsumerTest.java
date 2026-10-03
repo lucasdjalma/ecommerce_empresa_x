@@ -2,6 +2,7 @@ package com.riachuelo.warehouse.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.riachuelo.warehouse.dto.ProductCreatedEvent;
+import com.riachuelo.warehouse.dto.ProductDeletedEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +41,21 @@ class ProductMessageConsumerTest {
         verify(stockService).registerProduct(eventCaptor.capture());
         assertThat(eventCaptor.getValue().productId()).isEqualTo(7L);
         assertThat(eventCaptor.getValue().name()).isEqualTo("Tenis");
+    }
+
+    @Test
+    void consumesProductDeletedJsonAndRemovesStock() {
+        messageConsumer.consumeProductDeleted("{\"productId\":7}");
+
+        verify(stockService).removeProduct(new ProductDeletedEvent(7L));
+    }
+
+    @Test
+    void rejectsDeletedMessageWithoutProductId() {
+        assertThatThrownBy(() -> messageConsumer.consumeProductDeleted("{}"))
+                .isInstanceOf(AmqpRejectAndDontRequeueException.class)
+                .hasMessageContaining("product ID");
+        verifyNoInteractions(stockService);
     }
 
     @Test

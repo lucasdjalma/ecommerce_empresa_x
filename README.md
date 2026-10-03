@@ -16,7 +16,7 @@ Projeto didatico em Java e Spring Boot com dois servicos independentes: produtos
 - Java 21 e Spring Boot 3.5.6
 - Maven
 - Spring Web e Spring Data JPA
-- H2 em memoria, com banco distinto por servico
+- MySQL 8.4, com banco distinto por servico (`productdb` e `warehousedb`)
 - Spring AMQP e RabbitMQ
 - Spring Boot DevTools
 - Jakarta Bean Validation
@@ -27,35 +27,36 @@ Projeto didatico em Java e Spring Boot com dois servicos independentes: produtos
 ```text
 Cliente REST
     |
-    +--> Product Service (8081) --> H2 productdb
+    +--> Product Service (8081) --> MySQL productdb
                   |
-                  +--> RabbitMQ: product.exchange / product.created
+                  +--> RabbitMQ: product.exchange (product.created / product.deleted)
                                   |
                                   v
-                    stock.queue --> Warehouse Service (8082) --> H2 warehousedb
+                    stock.queue / stock.product-deleted.queue --> Warehouse Service (8082) --> MySQL warehousedb
 ```
 
 Cada servico e um aplicativo Maven independente, com seu proprio `pom.xml`, classe de inicializacao, configuracao e banco. Nenhum deles acessa diretamente o banco do outro.
 
 ### Product Service
 
-`ProductEntity` representa produtos com `name`, `description` e `price`. `ProductRepository` abstrai a persistencia JPA; `ProductService` aplica as operacoes de negocio e publica evento na criacao; `ProductController` oferece a API REST. Os DTOs mantem o formato da API e da mensagem separado da entidade persistida.
+`ProductEntity` representa produtos com `name`, `description` e `price`. `ProductRepository` abstrai a persistencia JPA; `ProductService` aplica as operacoes de negocio e publica eventos na criacao e na exclusao; `ProductController` oferece a API REST. Os DTOs mantem o formato da API e da mensagem separado da entidade persistida.
 
 ### Warehouse/Stock Service
 
-`StockEntity` armazena `productId`, `quantity` e `status`. O status e `OUT_OF_STOCK` quando a quantidade e zero e `IN_STOCK` quando e maior que zero. O `ProductMessageConsumer` recebe o evento, e `StockService` registra o produto no estoque de forma idempotente, inicialmente com quantidade zero.
+`StockEntity` armazena `productId`, `quantity` e `status`. O status e `OUT_OF_STOCK` quando a quantidade e zero e `IN_STOCK` quando e maior que zero. O `ProductMessageConsumer` recebe o evento, e `StockService` registra o produto no estoque de forma idempotente, inicialmente com quantidade zero. Quando o produto e excluido, o estoque correspondente tambem e removido.
 
 ## Pre-requisitos
 
 - JDK 21
 - Maven 3.9 ou superior
+- MySQL 8.4 em execucao na porta 3306, com o usuario `ecommerce` (senha `ecommerce`, apenas para desenvolvimento local) com acesso aos bancos `productdb` e `warehousedb`
 - RabbitMQ em execucao e acessivel pela porta AMQP 5672 para criar produtos e consumir os eventos
 
 Os servicos podem iniciar sem broker, mas a publicacao/consumo de mensagens nao funcionara ate RabbitMQ estar disponivel. Enquanto o broker estiver fora, `POST /api/products` responde `503 Service Unavailable` e o produto nao e gravado. Para outro host, porta ou credenciais, defina `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USERNAME` e `RABBITMQ_PASSWORD` no ambiente dos dois processos. Os valores padrao sao `localhost`, `5672` e `guest`/`guest`.
 
 ## Como executar
 
-Inicie RabbitMQ primeiro. Em seguida, abra dois terminais PowerShell:
+Inicie MySQL e RabbitMQ primeiro. Em seguida, abra dois terminais PowerShell:
 
 ```powershell
 cd .\product-service
@@ -67,7 +68,7 @@ cd .\warehouse-service
 mvn spring-boot:run
 ```
 
-Product Service usa a porta `8081`; Warehouse Service usa `8082`. Cada banco H2 e em memoria: seus dados existem enquanto o processo estiver ativo e sao descartados ao reiniciar o servico. O schema e criado/atualizado pelo JPA para facilitar o estudo local.
+Product Service usa a porta `8081`; Warehouse Service usa `8082`. Os dados ficam gravados no MySQL e permanecem apos reiniciar os servicos. O schema e criado/atualizado pelo JPA para facilitar o estudo local. Para outro servidor ou credenciais, defina `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USERNAME` e `MYSQL_PASSWORD`.
 
 ## Endpoints
 
@@ -79,7 +80,7 @@ Product Service usa a porta `8081`; Warehouse Service usa `8082`. Cada banco H2 
 | `GET` | `/api/products` | Lista produtos |
 | `GET` | `/api/products/{id}` | Consulta um produto |
 | `PUT` | `/api/products/{id}` | Atualiza nome, descricao e preco |
-| `DELETE` | `/api/products/{id}` | Remove produto; responde `204 No Content` |
+| `DELETE` | `/api/products/{id}` | Remove produto e publica evento de exclusao; responde `204 No Content` |
 
 Exemplo PowerShell para criar produto:
 
@@ -115,7 +116,8 @@ Quantidade negativa e rejeitada com `400 Bad Request`; produto ou estoque inexis
 2. O producer envia o evento ao exchange `product.exchange` com routing key `product.created`.
 3. A binding encaminha a mensagem para a fila duravel `stock.queue`.
 4. O `ProductMessageConsumer` do Warehouse Service le o evento e pede ao `StockService` para registrar o ID do produto com quantidade zero.
-5. A consulta do estoque e eventualmente consistente: aguarde o consumer processar a mensagem antes de consultar ou ajustar o estoque.
+5. `DELETE /api/products/{id}` remove o produto e publica o evento com routing key `product.deleted`, que vai para a fila `stock.product-deleted.queue`; o consumer remove o estoque daquele produto (se ja nao existir, nada acontece).
+6. A consulta do estoque e eventualmente consistente: aguarde o consumer processar a mensagem antes de consultar ou ajustar o estoque.
 
 ## Testes
 

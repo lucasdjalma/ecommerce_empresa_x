@@ -1,6 +1,7 @@
 package com.riachuelo.warehouse.service;
 
 import com.riachuelo.warehouse.dto.ProductCreatedEvent;
+import com.riachuelo.warehouse.dto.ProductDeletedEvent;
 import com.riachuelo.warehouse.dto.StockResponse;
 import com.riachuelo.warehouse.entity.StockEntity;
 import com.riachuelo.warehouse.entity.StockStatus;
@@ -58,6 +59,25 @@ class StockServiceTest {
         stockService.registerProduct(event);
 
         verify(stockRepository, never()).save(any(StockEntity.class));
+    }
+
+    @Test
+    void removeProductDeletesExistingStock() {
+        StockEntity stock = new StockEntity(7L);
+        when(stockRepository.findByProductId(7L)).thenReturn(Optional.of(stock));
+
+        stockService.removeProduct(new ProductDeletedEvent(7L));
+
+        verify(stockRepository).delete(stock);
+    }
+
+    @Test
+    void removeProductIgnoresUnknownProduct() {
+        when(stockRepository.findByProductId(7L)).thenReturn(Optional.empty());
+
+        stockService.removeProduct(new ProductDeletedEvent(7L));
+
+        verify(stockRepository, never()).delete(any(StockEntity.class));
     }
 
     @Test

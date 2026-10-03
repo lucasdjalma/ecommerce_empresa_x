@@ -1,6 +1,7 @@
 package com.riachuelo.product.service;
 
 import com.riachuelo.product.dto.ProductCreatedEvent;
+import com.riachuelo.product.dto.ProductDeletedEvent;
 import com.riachuelo.product.dto.ProductRequest;
 import com.riachuelo.product.dto.ProductResponse;
 import com.riachuelo.product.entity.ProductEntity;
@@ -20,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -50,6 +52,26 @@ class ProductServiceTest {
         verify(messageProducer).publishProductCreated(eventCaptor.capture());
         assertThat(eventCaptor.getValue().name()).isEqualTo("Camisa");
         assertThat(eventCaptor.getValue().price()).isEqualByComparingTo("79.90");
+    }
+
+    @Test
+    void deleteRemovesProductAndPublishesDeletedEvent() {
+        ProductEntity product = new ProductEntity("Camisa", "Camisa de algodao", new BigDecimal("79.90"));
+        when(productRepository.findById(5L)).thenReturn(Optional.of(product));
+
+        productService.delete(5L);
+
+        verify(productRepository).delete(product);
+        verify(messageProducer).publishProductDeleted(new ProductDeletedEvent(5L));
+    }
+
+    @Test
+    void deleteDoesNotPublishWhenProductDoesNotExist() {
+        when(productRepository.findById(5L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> productService.delete(5L))
+                .isInstanceOf(ResponseStatusException.class);
+        verifyNoInteractions(messageProducer);
     }
 
     @Test

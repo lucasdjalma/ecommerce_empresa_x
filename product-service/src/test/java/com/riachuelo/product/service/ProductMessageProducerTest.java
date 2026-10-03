@@ -2,6 +2,7 @@ package com.riachuelo.product.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.riachuelo.product.dto.ProductCreatedEvent;
+import com.riachuelo.product.dto.ProductDeletedEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,8 +38,26 @@ class ProductMessageProducerTest {
                 rabbitTemplate,
                 new ObjectMapper(),
                 "product.exchange",
-                "product.created"
+                "product.created",
+                "product.deleted"
         );
+    }
+
+    @Test
+    void publishesProductDeletedEventAsJson() throws Exception {
+        messageProducer.publishProductDeleted(new ProductDeletedEvent(12L));
+
+        ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
+        verify(rabbitTemplate).convertAndSend(
+                eq("product.exchange"),
+                eq("product.deleted"),
+                messageCaptor.capture()
+        );
+        ProductDeletedEvent published = new ObjectMapper().readValue(
+                messageCaptor.getValue(),
+                ProductDeletedEvent.class
+        );
+        assertThat(published.productId()).isEqualTo(12L);
     }
 
     @Test

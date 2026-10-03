@@ -1,6 +1,7 @@
 package com.riachuelo.product.service;
 
 import com.riachuelo.product.dto.ProductCreatedEvent;
+import com.riachuelo.product.dto.ProductDeletedEvent;
 import com.riachuelo.product.dto.ProductRequest;
 import com.riachuelo.product.dto.ProductResponse;
 import com.riachuelo.product.entity.ProductEntity;
@@ -53,8 +54,12 @@ public class ProductService {
         return toResponse(productRepository.save(product));
     }
 
+    @Transactional
     public void delete(Long id) {
         productRepository.delete(findProduct(id));
+        // Garante que a exclusao foi aceita pelo banco antes de avisar o estoque.
+        productRepository.flush();
+        messageProducer.publishProductDeleted(new ProductDeletedEvent(id));
     }
 
     private ProductEntity findProduct(Long id) {

@@ -1,12 +1,14 @@
 package com.riachuelo.warehouse.service;
 
 import com.riachuelo.warehouse.dto.ProductCreatedEvent;
+import com.riachuelo.warehouse.dto.ProductDeletedEvent;
 import com.riachuelo.warehouse.dto.StockResponse;
 import com.riachuelo.warehouse.entity.StockEntity;
 import com.riachuelo.warehouse.repository.StockRepository;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -24,6 +26,13 @@ public class StockService {
         if (!stockRepository.existsByProductId(event.productId())) {
             stockRepository.save(new StockEntity(event.productId()));
         }
+    }
+
+    @Transactional
+    public void removeProduct(ProductDeletedEvent event) {
+        // Idempotente: se o estoque ja nao existe, nao ha nada a fazer.
+        stockRepository.findByProductId(event.productId())
+                .ifPresent(stockRepository::delete);
     }
 
     public List<StockResponse> findAll() {

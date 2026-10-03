@@ -31,4 +31,18 @@ public class RabbitMQConfig {
     ) {
         return BindingBuilder.bind(stockQueue).to(productExchange).with(routingKey);
     }
+
+    @Bean
+    public Queue stockDeletedQueue(@Value("${app.rabbitmq.stock-deleted-queue}") String queueName) {
+        return new Queue(queueName, true);
+    }
+
+    @Bean
+    public Binding stockDeletedBinding(
+            Queue stockDeletedQueue,
+            TopicExchange productExchange,
+            @Value("${app.rabbitmq.product-deleted-routing-key}") String routingKey
+    ) {
+        return BindingBuilder.bind(stockDeletedQueue).to(productExchange).with(routingKey);
+    }
 }
