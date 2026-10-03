@@ -1,4 +1,13 @@
-# E-commerce com microsservicos
+# E-commerce
+
+Repositorio: https://github.com/lucasdjalma/E-commerce
+
+```powershell
+git clone https://github.com/lucasdjalma/E-commerce.git
+cd E-commerce
+```
+
+## E-commerce com microsservicos
 
 Projeto didatico em Java e Spring Boot com dois servicos independentes: produtos e estoque. O exercicio `src\Main.java` / `src\Cliente.java` permanece separado e inalterado.
 
